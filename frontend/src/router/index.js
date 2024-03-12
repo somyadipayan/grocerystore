@@ -1,6 +1,9 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import RegisterPage from '../views/RegisterPage.vue'
+import LoginPage from '../views/LoginPage.vue'
+import ManagerApplications from '../views/ManagerApplications.vue'
+import CreateCategory from '../views/CreateCategory.vue'
 
 const routes = [
   {
@@ -12,6 +15,21 @@ const routes = [
     path: '/register',
     name: 'register',
     component: RegisterPage
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginPage
+  },
+  {
+    path: '/managerapplications',
+    name: 'managerapplications',
+    component: ManagerApplications
+  },
+  {
+    path: '/createcategory',
+    name: 'createcategory',
+    component: CreateCategory
   },
   {
     path: '/about',
