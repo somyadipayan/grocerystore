@@ -36,6 +36,7 @@
   
           if (response.ok) {
             alert(data.message);
+            //this.$routerKey.push('/all-categories');
             // Route to all categories
           } else {
             alert('Error: ' + data.error);
