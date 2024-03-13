@@ -75,3 +75,6 @@ categoriesschema = CategorySchema(many=True)
 class ProductSchema(ma.Schema):
     class Meta:
         fields = ('id', 'name', 'unit', 'rateperunit', 'quantity', 'category_id', 'creator_id')
+
+productschema = ProductSchema()
+productsschema = ProductSchema(many=True)

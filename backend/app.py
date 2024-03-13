@@ -5,11 +5,6 @@ from flask_jwt_extended import JWTManager
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, unset_jwt_cookies
 from flask_cors import CORS
 
-class Config:
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///database.db'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    JWT_SECRET_KEY = 'veryyysecret'
-
 app = Flask(__name__)
 app.config.from_object(Config)
 jwt = JWTManager(app)
@@ -200,6 +195,119 @@ def delete_category(id):
 def get_categories():
     categories = Category.query.all()
     return jsonify({"categories":categoriesschema.dump(categories)}), 200
+
+# API to create a Product in a Category (can be done by both admin and verified managers)
+@app.route('/category/<int:category_id>/add-product', methods=['POST'])
+@jwt_required()
+def add_product_to_category(category_id):
+    try:
+        this_user = get_jwt_identity()
+        if not this_user['verified']:
+            return jsonify({'error': 'Page Restricted!'}), 401
+
+        data = request.json
+        print(data)
+        product_name = data.get('name')
+        product_unit = data.get('unit')
+        product_rateperunit = data.get('rateperunit')
+        product_quantity = data.get('quantity')
+
+        if not product_name or not product_unit or not product_rateperunit or not product_quantity:
+            return jsonify({'message': 'Missing required fields (name, unit, rateperunit, quantity)'}), 400
+
+        new_product = Product(
+            name=product_name,
+            unit=product_unit,
+            rateperunit=product_rateperunit,
+            quantity=product_quantity,
+            category_id=category_id,
+            creator_id=this_user['id']
+        )
+
+        db.session.add(new_product)
+        db.session.commit()
+
+        return jsonify({'message': 'Product added to category successfully'}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# GET ALL PRODUCTS
+@app.route('/products', methods=['GET'])
+def view_all_products():
+    try:
+        all_products = Product.query.all()
+        if not all_products:    
+            return jsonify({'message': 'No products found.'}), 404
+        products_data = productsschema.dump(all_products)
+        return jsonify({'products': products_data}), 200
+    except Exception as e:
+        print(f"Error occurred while fetching products: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+
+
+@app.route('/products/my-products', methods=['GET'])
+@jwt_required()
+def view_user_products():
+    try:
+        this_user= get_jwt_identity()
+        if not this_user['verified']:
+            return jsonify({'error': 'Page Restricted!'}), 401
+
+        this_user_id = this_user['id']
+        user_products = Product.query.filter_by(creator_id=this_user_id).all()
+        if not user_products:
+            return jsonify({'message': 'You haven\'t added any products'}), 404
+
+        products_data = productsschema.dump(user_products)
+        return jsonify({'user_products': products_data}), 200
+
+    except Exception as e:
+        print(f"Error occurred while fetching user products: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+
+
+@app.route('/product/<int:product_id>', methods=['GET'])
+def view_product(product_id):
+    try:
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'message': 'Product not found'}), 404   
+        product_data = productschema.dump(product)
+        category = Category.query.get(product.category_id)
+        return jsonify({'product': product_data, "category_name": category.name}), 200
+    except Exception as e:
+        print(f"Error occurred while fetching product details: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+
+
+@app.route('/product/<int:product_id>', methods=['PUT'])
+@jwt_required()
+def update_product(product_id):
+    try:
+        this_user = get_jwt_identity()
+        if not this_user['verified']:
+            return jsonify({'error': 'Page Restricted!'}), 401
+
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'message': 'Product not found'}), 404
+
+        data = request.json
+        product.name = data.get('name', product.name)
+        product.unit = data.get('unit', product.unit)
+        product.rateperunit = data.get('rateperunit', product.rateperunit)
+        product.quantity = data.get('quantity', product.quantity)
+
+        db.session.commit()
+
+        return jsonify({'message': 'Product updated successfully'}), 200
+
+    except Exception as e:
+        print(f"Error occurred while updating product: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+    
 
 if __name__ == "__main__":
     app.run(debug=True)
