@@ -4,6 +4,8 @@ import RegisterPage from '../views/RegisterPage.vue'
 import LoginPage from '../views/LoginPage.vue'
 import ManagerApplications from '../views/ManagerApplications.vue'
 import CreateCategory from '../views/CreateCategory.vue'
+import AllCategories from '../views/AllCategories.vue'
+import UpdateCategory from '../views/UpdateCategory.vue'
 
 const routes = [
   {
@@ -30,6 +32,16 @@ const routes = [
     path: '/createcategory',
     name: 'createcategory',
     component: CreateCategory
+  },
+  {
+    path: '/allcategories',
+    name: 'allcategories',
+    component: AllCategories
+  },
+  {
+    path: '/updatecategory/:id',
+    name: 'UpdateCategory',
+    component: UpdateCategory
   },
   {
     path: '/about',

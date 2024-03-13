@@ -1,4 +1,5 @@
 <template>
+    <NavBar />
     <div class="login">
         <form @submit.prevent="login">
             <h1>Login</h1>
@@ -16,6 +17,7 @@
 </template>
 
 <script>
+import NavBar from '../components/NavBar.vue'
 export default{
     data(){
         return{

@@ -124,6 +124,17 @@ def manager_approve(manager_id):
     db.session.commit()
     return jsonify({"message": message}), 200
 
+
+@app.route('/getuserinfo', methods=['GET'])
+@jwt_required()
+def getuserinfo():
+    this_user = get_jwt_identity()
+    user = User.query.get(this_user['id'])
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    user_data = userschema.dump(user)
+    return jsonify(user_data), 200
+
 # CREATE
 @app.route('/category', methods=['POST'])
 @jwt_required()
@@ -170,6 +181,7 @@ def update_category(id):
     db.session.commit()
     return jsonify({"message": "Category updated successfully"}), 200
 
+#DELETE
 @app.route('/category/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_category(id):
@@ -182,6 +194,12 @@ def delete_category(id):
     db.session.delete(category)
     db.session.commit()
     return jsonify({"message": "Category deleted successfully"}), 200
+
+# Read all categories
+@app.route('/categories', methods=['GET'])
+def get_categories():
+    categories = Category.query.all()
+    return jsonify({"categories":categoriesschema.dump(categories)}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
