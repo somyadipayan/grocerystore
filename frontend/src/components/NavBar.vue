@@ -14,8 +14,11 @@
                     <li v-if="!this.loggedin" class="nav-item">
                         <a class="nav-link" href="#">Register</a>
                     </li>
-                    <li v-if="this.loggedin" class="nav-item">
-                        <a class="nav-link" href="#">Create Category</a>
+                    <li v-if="this.loggedin && (this.role=='admin')" class="nav-item">
+                        <router-link class="nav-link" to="/createcategory">Create Category</router-link>
+                    </li>
+                    <li v-if="this.loggedin && (this.role=='admin')" class="nav-item">
+                        <router-link class="nav-link" to="/allcategories">All Categories</router-link>
                     </li>
                     <li  v-if="this.loggedin && (this.role=='admin')" class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
@@ -24,7 +27,6 @@
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="#">Manager Applications</a></li>
-                            <li><a class="dropdown-item" href="#">Create category</a></li>
                         </ul>
                     </li>
                     <li v-if="this.loggedin" class="nav-item">

@@ -4,9 +4,20 @@ from config import Config
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, unset_jwt_cookies
 from flask_cors import CORS
+import workers, task
+from flask_mail import Mail
+from mailer import send_email
 
 app = Flask(__name__)
 app.config.from_object(Config)
+mail = Mail(app)
+celery = workers.celery
+celery.conf.update(
+    broker_url= 'redis://localhost:6379/0',
+    result_backend = 'redis://localhost:6379/1'
+)
+celery.Task = workers.ContextTask
+app.app_context().push()
 jwt = JWTManager(app)
 db.init_app(app)
 ma.init_app(app)
@@ -19,6 +30,7 @@ CORS(app, supports_credentials=True)
 # Home route
 @app.route("/")
 def hello():
+    task.add_together.delay(5,3)
     return "Hello, World!"
 
 # register route
@@ -69,6 +81,8 @@ def login():
         'role': user.role,
         'verified': user.verified
     })
+
+    user.last_login = datetime.now()
 
     return jsonify({"message": "Login successful", "access_token": access_token}), 200
 
@@ -226,6 +240,7 @@ def add_product_to_category(category_id):
 
         db.session.add(new_product)
         db.session.commit()
+        task.add_together.delay(new_product)
 
         return jsonify({'message': 'Product added to category successfully'}), 201
 
@@ -308,6 +323,122 @@ def update_product(product_id):
         print(f"Error occurred while updating product: {str(e)}")
         return jsonify({'message': 'Oops, Something went wrong!'}), 500
     
+
+@app.route('/category/<int:category_id>/products', methods=['GET'])
+def view_products_by_category(category_id):
+    try:
+        products = Product.query.filter_by(category_id=category_id).all()
+        if not products:
+            return jsonify({'message': 'No products found in this category'}), 404
+        products_data = productsschema.dump(products)
+        return jsonify({'products': products_data}), 200
+    except Exception as e:
+        print(f"Error occurred while fetching products: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+
+
+# ADDING A PRODUCT TO CART
+@app.route('/cart/<int:product_id>', methods=['POST'])
+@jwt_required()
+def addtocart(product_id):
+    try:
+        current_user = get_jwt_identity()
+        product = Product.query.get(product_id)
+        
+        if not product:
+            return jsonify({'message': 'Product not found'}), 404
+        
+        user_cart = ShoppingCart.query.filter_by(user_id=current_user['id']).first()
+
+        if not user_cart:
+            new_cart = ShoppingCart(user_id=current_user['id'])
+            db.session.add(new_cart)
+            db.session.commit()
+
+        quantity = request.json.get('quantity', 1)
+        if quantity < 1:
+            return jsonify({'message': 'Quantity must be greater than 0'}), 400
+        if quantity > product.quantity:
+            return jsonify({'message': 'Quantity exceeds available stock'}), 400
+        product_in_cart = CartItem.query.filter_by(cart_id=user_cart.id, product_id=product_id).first()
+        print('product_in_cart', product_in_cart)
+        if product_in_cart:
+            product_in_cart.quantity += quantity
+        else:
+            print(user_cart.id)
+            new_cart_entry = CartItem(cart_id=user_cart.id, product_id=product_id, quantity=quantity)
+            print(new_cart_entry)
+            db.session.add(new_cart_entry)
+        db.session.commit()
+        return jsonify({'message': 'Product added to cart successfully'}), 201
+    
+    except Exception as e:
+        print(f"Error occurred while adding product to cart: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+
+
+@app.route('/cart', methods=['GET'])
+@jwt_required()
+def viewcart():
+    try:
+        current_user = get_jwt_identity()
+        user = User.query.get(current_user["id"])
+        user_cart = ShoppingCart.query.filter_by(user_id=current_user['id']).first()
+        if not user_cart:
+            return jsonify({'message': 'Cart is empty'}), 404
+        cart_items = CartItem.query.filter_by(cart_id=user_cart.id).all()
+        if not cart_items:
+            return jsonify({'message': 'Cart is empty'}), 404
+        cart_data = []
+        for cart_item in cart_items:
+            product = Product.query.get(cart_item.product_id)
+            cart_data.append({
+                'product_id': product.id,
+                'product_name': product.name,
+                'quantity': cart_item.quantity,
+                'unit': product.unit,
+                'rateperunit': product.rateperunit,
+                'total_price': cart_item.quantity * product.rateperunit
+            })
+        return jsonify({'user': user.name,'cart': cart_data}), 200
+    except Exception as e:
+        print(f"Error occurred while fetching cart: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
+
+@app.route('/order', methods=['POST'])
+@jwt_required()
+def create_order():
+    try:
+        current_user = get_jwt_identity()
+        user_cart = ShoppingCart.query.filter_by(user_id = current_user['id']).first()
+
+        if not user_cart or not user_cart.items:
+            return "Shopping cart is empty"
+
+        total_amount = 0
+        order_items = []
+        print(user_cart.items)
+        for cart_item in user_cart.items:
+            print(cart_item)
+            product = cart_item.product
+            if product.quantity < cart_item.quantity:
+                return jsonify({'message': 'Quantity exceeds available stock'}), 400 
+            total_amount += cart_item.quantity * product.rateperunit
+            order_item = OrderItem(product_id=product.id, quantity=cart_item.quantity)
+            order_items.append(order_item)
+            product.quantity -= cart_item.quantity
+        new_order = Order(user_id = current_user['id'],
+                          total_amount = total_amount,
+                          order_date = datetime.now())
+        new_order.items = order_items
+        db.session.add(new_order)
+        db.session.delete(user_cart)
+        db.session.commit()
+        return jsonify({'message': 'Order created successfully'}), 201
+    
+    except Exception as e:
+        print(f"Error occurred while creating order: {str(e)}")
+        return jsonify({'message': 'Oops, Something went wrong!'}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

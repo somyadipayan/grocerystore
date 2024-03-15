@@ -18,7 +18,7 @@
               <div class="btn-group" role="group">
                 <button v-if="this.role == 'admin'" class="btn btn-outline-primary" @click="updateCategory(category.id)">Update</button>
                 <button v-if="this.role == 'admin'" class="btn btn-outline-danger" @click="deleteCategory(category.id)">Delete</button>
-                <router-link v-if="this.role == 'admin' || this.role=='manager'" to="#">
+                <router-link v-if="this.role == 'admin' || this.role=='manager'" :to="`/add-products/${category.id}`">
                   <button class="btn btn-outline-success">Add Product</button>
                 </router-link>
               </div>

@@ -6,6 +6,8 @@ import ManagerApplications from '../views/ManagerApplications.vue'
 import CreateCategory from '../views/CreateCategory.vue'
 import AllCategories from '../views/AllCategories.vue'
 import UpdateCategory from '../views/UpdateCategory.vue'
+import AddProducts from '../views/AddProducts.vue'
+
 
 const routes = [
   {
@@ -42,6 +44,11 @@ const routes = [
     path: '/updatecategory/:id',
     name: 'UpdateCategory',
     component: UpdateCategory
+  },
+  {
+    path: '/add-products/:id',
+    name: 'addproducts',
+    component: AddProducts
   },
   {
     path: '/about',
